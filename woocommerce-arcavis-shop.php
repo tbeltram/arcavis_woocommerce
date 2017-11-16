@@ -39,7 +39,27 @@ class WC_Arcavis_Shop {
 	public $settings_obj = null;
 	public $sync = null;
 	public $transaction_response = null;
-
+	
+	/* Texts */
+	public $text_discount='Rabatt';
+	public $text_voucher='Gutschein';
+	public $text_settings='Arcavis Einstellungen';
+	public $text_entervoucher='Gutschein';
+	public $text_entervoucherplaceholder='Gutschein-Nummer';
+	public $text_syncstarted='Daten werden synchronisiert. Dies wird mehrere Minuten dauern...';
+	public $text_dontreload='Bitte Seite nicht neu laden';
+	public $text_settingssaved='Einstellungen gespeichert';
+	public $text_settingspage_credentials='Einstellungen für die Verbindung mit Arcavis';
+	public $text_settingspage_savebutton='Speichern und Synchronisation starten';
+	public $text_settingspage_reloadbutton='Alles löschen und neu synchronisieren';
+	public $text_settingspage_url='Arcavis Installations-URL';
+	public $text_settingspage_urlplaceholder='https://test.arcavis.ch';
+	public $text_settingspage_username='Benutzername';
+	public $text_settingspage_password='Kennwort';
+	public $text_settingspage_interval='Synchronisationsintervall';
+	public $text_settingspage_syncwarning='Achtung! Alle Artikel und Bestellungen werden gelöscht. Fortfahren?';
+	
+	
 	public static function instance() {
 		if ( is_null( self::$_instance ) ){
 			self::$_instance = new self();
@@ -48,7 +68,6 @@ class WC_Arcavis_Shop {
 	}
 
 	public function __construct(){		
-
 		$this->define_constant();
 		$this->load_required_files();
 		add_action( 'init', array( $this, 'init' ));
@@ -61,11 +80,14 @@ class WC_Arcavis_Shop {
 		add_action('arcavis_schedule_api_hook', array($this,'arcavis_start_update_sync'));
 		register_deactivation_hook( __FILE__, array($this,'deactivate_tasks') );
 		
-		
+		// Locale English
+		if(strpos(get_locale(), 'en') == 0){
+			$this->text_discount='Discount';
+			$this->text_voucher='Voucher';
+		}
 	}// end of the construct
 
-	
-	
+
 	public function init(){
 		$this->init_class();
 		//print_r(wp_get_schedules());
@@ -74,6 +96,7 @@ class WC_Arcavis_Shop {
 	private function load_required_files(){
 		$this->load_files(WC_AS_INC_ADMIN.'shop-setting.php');
 		$this->load_files(WC_AS_INC_ADMIN.'create-products.php');
+		$this->load_files(WC_AS_INC_ADMIN.'payment-gateway.php');
 		$this->load_files(WC_AS_INC.'arcavis-transaction.php');
 
 	}
@@ -81,8 +104,7 @@ class WC_Arcavis_Shop {
 	private function init_class(){
         $this->settings_obj = new WooCommerce_Arcavis_Shop_Admin_Settings;
         $this->sync = new WooCommerce_Arcavis_Create_Products_Settings;
-        $transaction = new WooCommerce_Arcavis_Transaction;
-        
+        $this->transaction = new WooCommerce_Arcavis_Transaction;
 	}
 
 	
@@ -151,12 +173,26 @@ class WC_Arcavis_Shop {
 			voucher_code varchar(255) NOT NULL,
 			discount_amount varchar(255) NOT NULL,
 			discount_type varchar(255) NOT NULL,
-			tranasction_reposnse longtext NOT NULL,
+			transaction_response longtext NOT NULL,
 			UNIQUE KEY id (id)
 		) $charset_collate;";
 
 		
 		dbDelta( $sql3 );
+		
+		
+		// Logger
+		$table_name4 = $wpdb->prefix .'arcavis_logs';
+
+		$sql4 = "CREATE TABLE $table_name4 (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			date datetime NOT NULL,
+			level varchar(10) NOT NULL,
+			message longtext NULL,
+			UNIQUE KEY id (id)
+		) $charset_collate;";
+
+		dbDelta( $sql4 );
 	}
 
 	## Function will call at deactivation of plugin.
@@ -186,12 +222,15 @@ class WC_Arcavis_Shop {
 
 
 	public function arcavis_start_initial_sync() {
-
+		global $wc_arcavis_shop;
+		$wc_arcavis_shop->logDebug('**arcavis_start_initial_sync');
 		$this->sync->create_products_init();
 	 		 
 	}
 
 	public function arcavis_start_update_sync(){
+		global $wc_arcavis_shop;
+		$wc_arcavis_shop->logDebug('**arcavis_start_update_sync');
 		$this->sync->update_products();
 	}
 
@@ -214,6 +253,25 @@ class WC_Arcavis_Shop {
             define($key,$value);
         }
     }
+	
+	public function logDebug($msg){
+		$this->logMessage('DEBUG',$msg);
+	}
+	
+	public function logError($msg){
+		$this->logMessage('ERROR',$msg);
+	}
+	
+	private function logMessage($level, $msg)
+	{
+		global $wpdb;
+		if( WP_DEBUG === true || $level!='DEBUG')
+		{
+			$table_name = $wpdb->prefix .'arcavis_logs';
+			$date = date('Y-m-d H:i:s');
+			$wpdb->insert($table_name, array( 'date' => $date, 'level' => $level , 'message' => $msg ));
+		}
+	}
 
     public function is_request( $type ) {
 		switch ( $type ) {

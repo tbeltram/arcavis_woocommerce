@@ -1,5 +1,6 @@
 <?php
 session_start();
+
 /*This Class use for the handing Check transaction and Post Transaction API Calls*/
 class WooCommerce_Arcavis_Transaction {
 	public function __construct(){		
@@ -12,11 +13,10 @@ class WooCommerce_Arcavis_Transaction {
 		add_action('wp_ajax_nopriv_arcavis_get_applied_voucher_code', array($this,'arcavis_get_applied_voucher_code'));		
 		add_action( 'woocommerce_order_status_changed', array( $this, 'arcavis_process_transaction'), 99, 3 ); 
 		add_action('woocommerce_checkout_order_processed', array( $this, 'order_process'), 10, 1);
-
-		   
+		add_filter( 'woocommerce_payment_gateways', 'add_arcavis_gateway' );
+		//add_filter('woocommerce_checkout_place_order', array( $this,'checkout_place_order') );
 	}
 
-	
 	public function arcavis_js_variables(){
 
 		?>
@@ -39,15 +39,14 @@ class WooCommerce_Arcavis_Transaction {
 	
 	## This function use to add voucher field in checkout form. 
 	function customise_checkout_field($checkout){
-		
+		global $wc_arcavis_shop;
 		woocommerce_form_field('arcavis_voucher', array(
 			'type' => 'text',
-
 			'class' => array(
 				'my-field-class form-row-wide'
 			) ,
-			'label' => __('Enter Voucher') ,
-			'placeholder' => __('Enter Voucher') ,
+			'label' => __($wc_arcavis_shop->text_entervoucher) ,
+			'placeholder' => __($wc_arcavis_shop->text_entervoucherplaceholder) ,
 			'required' => false,
 		) , $checkout->get_value('arcavis_voucher'));
 
@@ -93,9 +92,8 @@ class WooCommerce_Arcavis_Transaction {
 				if(get_current_user_id()){
 					$current_user = wp_get_current_user();
 					$request_array['Customer'] = array(
-						'CustomerNumber' => 'WooCom-'.get_current_user_id(),
+						'CustomerNumber' => $current_user->user_email,
 						'LanguageId' => '',
-						'DisplayName' => $current_user->user_firstname .' '.$current_user->user_lastname,
 						'IsCompany' => $billing_company == '' ? 'false' : 'true',
 						'CompanyName' => $billing_company,
 						'Salutation' => '',
@@ -114,80 +112,7 @@ class WooCommerce_Arcavis_Transaction {
 						'ContactMobile' => '',
 						'Birthdate' => ''
 					);
-					if($ship_to_different_address == '1'){
-						$request_array['DeliveryCustomer'] = array(
-							'CustomerNumber' => 'WooCom-'.get_current_user_id(),
-							'LanguageId' => '',
-							'DisplayName' => $shipping_first_name.' '.$shipping_last_name,
-							'IsCompany' => $shipping_company == '' ? 'false' : 'true',
-							'CompanyName' => $shipping_company,
-							'Salutation' => '',
-							'SalutationTitle' => '',
-							'Firstname' => $shipping_first_name,
-							'Name' => $shipping_last_name,
-							'Street' => $shipping_address_1,
-							'StreetNumber' => '',
-							'StreetSupplement' => '',
-							'PoBox' => '',
-							'Zip' => $shipping_postcode,
-							'City' => $shipping_city,
-							'CountryIsoCode' => $shipping_country,
-							'ContactEmail' => $billing_email,
-							'ContactPhone' => $billing_phone,
-							'ContactMobile' => '',
-							'Birthdate' => ''
-						);
-					}
-				}else{
-					$request_array['Customer'] = array(
-						'CustomerNumber' => $billing_email,
-						'LanguageId' => '',
-						'DisplayName' => $billing_first_name .' '.$billing_last_name,
-						'IsCompany' => $billing_company == '' ? 'false' : 'true',
-						'CompanyName' => $billing_company,
-						'Salutation' => '',
-						'SalutationTitle' => '',
-						'Firstname' => $billing_first_name,
-						'Name' => $billing_last_name,
-						'Street' => $billing_address_1,
-						'StreetNumber' => '',
-						'StreetSupplement' => '',
-						'PoBox' => '',
-						'Zip' => $billing_postcode,
-						'City' => $billing_city,
-						'CountryIsoCode' => $billing_country,
-						'ContactEmail' => $billing_email,
-						'ContactPhone' => $billing_phone,
-						'ContactMobile' => '',
-						'Birthdate' => ''
-					);
-					if($ship_to_different_address == '1'){
-						$request_array['DeliveryCustomer'] = array(
-							'CustomerNumber' => 'WooCom-'.get_current_user_id(),
-							'LanguageId' => '',
-							'DisplayName' => $shipping_first_name.' '.$shipping_last_name,
-							'IsCompany' => $shipping_company == '' ? 'false' : 'true',
-							'CompanyName' => $shipping_company,
-							'Salutation' => '',
-							'SalutationTitle' => '',
-							'Firstname' => $shipping_first_name,
-							'Name' => $shipping_last_name,
-							'Street' => $shipping_address_1,
-							'StreetNumber' => '',
-							'StreetSupplement' => '',
-							'PoBox' => '',
-							'Zip' => $shipping_postcode,
-							'City' => $shipping_city,
-							'CountryIsoCode' => $shipping_country,
-							'ContactEmail' => $billing_email,
-							'ContactPhone' => $billing_phone,
-							'ContactMobile' => '',
-							'Birthdate' => ''
-						);
-					}
 				}
-
-
 				
 				$cart_total = preg_replace("/[^0-9,.]/", "",html_entity_decode($woocommerce->cart->get_cart_total())); //
 
@@ -211,7 +136,6 @@ class WooCommerce_Arcavis_Transaction {
 						'Quantity' => $values['quantity'],
 						'TaxRate' => '',
 						'UnitPrice' => $price,
-					//	'Discount' => 0,
 						'Price' => $price*$values['quantity']
 						);
 		           $i++;
@@ -291,11 +215,7 @@ class WooCommerce_Arcavis_Transaction {
 					}
 
 					$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."'  AND discount_type='response'");
-					$wpdb->insert($wpdb->prefix ."applied_vouchers", array( 'session_id' => session_id(), 'discount_type' => 'response', 'tranasction_reposnse' => $json_response));
-
-					
-					
-					
+					$wpdb->insert($wpdb->prefix ."applied_vouchers", array( 'session_id' => session_id(), 'discount_type' => 'response', 'transaction_response' => $json_response));
 				}				
 			}
 		}
@@ -305,7 +225,7 @@ class WooCommerce_Arcavis_Transaction {
 		if(!empty($applied_disocunt)){
 		
 			
-			$extra_fee_option_label		= 'Arcavis Discount';
+			$extra_fee_option_label		= $wc_arcavis_shop->text_discount;
 			$extra_fee_option_cost		=  '-'.$applied_disocunt->discount_amount;
 			$extra_fee_option_type		=  'fixed';
 			$extra_fee_option_taxable	=  false;
@@ -320,7 +240,7 @@ class WooCommerce_Arcavis_Transaction {
 		if(!empty($applied_vouchers)){
 		
 
-			$extra_fee_option_label		= 'Voucher Discount';
+			$extra_fee_option_label		=  $wc_arcavis_shop->text_voucher;
 			$extra_fee_option_cost		=  '-'.$applied_vouchers->discount_amount;
 			$extra_fee_option_type		=  'fixed';
 			$extra_fee_option_taxable	=  false;
@@ -345,145 +265,99 @@ class WooCommerce_Arcavis_Transaction {
 		$session_id_at_checkout = get_post_meta($order_id,'session_id_at_checkout',true);
 		
 		if(in_array($new_status,array('on-hold','completed','processing'))){
-			$transactions_done_or_not = get_post_meta($order_id,'acravis_repsonse',true);
+			$transactions_done_or_not = get_post_meta($order_id,'acravis_response',true);
 			if(!$transactions_done_or_not){
-				
-				$order = new WC_Order( $order_id );		
-				$current_user = wp_get_current_user();
-
-				if(get_current_user_id()){
-					$current_user = wp_get_current_user();
-					$request_array['Customer'] = array(
-						'CustomerNumber' => 'WooCom-'.get_current_user_id(),
-						'LanguageId' => '',
-						'DisplayName' => $current_user->user_firstname.' '.$current_user->user_lastname,
-						'IsCompany' => $order->get_billing_company() == '' ? 'false' : 'true',
-						'CompanyName' => $order->get_billing_company(),
-						'Salutation' => '',
-						'SalutationTitle' => '',
-						'Firstname' => $current_user->user_firstname,
-						'Name' => $current_user->user_lastname,
-						'Street' => $order->get_billing_address_1(),
-						'StreetNumber' => '',
-						'StreetSupplement' => '',
-						'PoBox' => '',
-						'Zip' => $order->get_billing_postcode(),
-						'City' => $order->get_billing_city(),
-						'CountryIsoCode' => $order->get_billing_country(),
-						'ContactEmail' => $current_user->user_email,
-						'ContactPhone' => $order->get_billing_phone(),
-						'ContactMobile' => '',
-						'Birthdate' => ''
-					);
-				}else{
-					$request_array['Customer'] = array(
-						'CustomerNumber' => '',
-						'LanguageId' => '',
-						'DisplayName' => $order->get_billing_first_name().' '.$order->get_billing_last_name(),
-						'IsCompany' => $order->get_billing_company() == '' ? 'false' : 'true',
-						'CompanyName' => $order->get_billing_company(),
-						'Salutation' => '',
-						'SalutationTitle' => '',
-						'Firstname' => $order->get_billing_first_name(),
-						'Name' => $order->get_billing_last_name(),
-						'Street' => $order->get_billing_address_1(),
-						'StreetNumber' => '',
-						'StreetSupplement' => '',
-						'PoBox' => '',
-						'Zip' => $order->get_billing_postcode(),
-						'City' => $order->get_billing_city(),
-						'CountryIsoCode' => $order->get_billing_country(),
-						'ContactEmail' => $order->get_billing_email(),
-						'ContactPhone' => $order->get_billing_phone(),
-						'ContactMobile' => '',
-						'Birthdate' => ''
-					);	
-				}	
-				
-				$request_array['DeliveryCustomer'] = array(
-					'CustomerNumber' => $order->get_billing_email(),
-					'LanguageId' => '',
-					'DisplayName' => $order->get_shipping_first_name().' '.$order->get_shipping_last_name(),
-					'IsCompany' => $order->get_shipping_company() == '' ? 'false' : 'true',
-					'CompanyName' => $order->get_shipping_company(),
-					'Salutation' => '',
-					'SalutationTitle' => '',
-					'Firstname' => $order->get_shipping_first_name(),
-					'Name' => $order->get_shipping_last_name(),
-					'Street' => $order->get_shipping_address_1(),
-					'StreetNumber' => '',
-					'StreetSupplement' => '',
-					'PoBox' => '',
-					'Zip' => $order->get_shipping_postcode(),
-					'City' => $order->get_shipping_city(),
-					'CountryIsoCode' => $order->get_shipping_country(),
-					'ContactEmail' => $order->get_billing_email(),
-					'ContactPhone' => $order->get_billing_phone(),
-					'ContactMobile' => '',
-					'Birthdate' => ''
-				);
-				
-				$arcavis_response_json = $wpdb->get_row("SELECT tranasction_reposnse FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='response'");
-				$arcavis_response = json_decode(stripslashes($arcavis_response_json->tranasction_reposnse));
-				
-				
-				$cart_total = $arcavis_response->Result->AmountOpen; //round($order->get_total(),1, PHP_ROUND_HALF_EVEN);
-				$request_array['Amount'] = $cart_total;
-				$request_array['AmountOpen'] = $cart_total;
-				$request_array['Remarks'] = $order->customer_message;//$arcavis_response->Result->Remarks;
-
-				
-
-				$request_array['TransactionArticles'] = $arcavis_response->Result->TransactionArticles;//array_merge($cart_data,$shipping_data);
-				$vouchers = array();
-				if(!empty($arcavis_response->Result->TransactionVouchers)){
-					$vouchers = $arcavis_response->Result->TransactionVouchers;
-				}
-				
-				
-				$request_array['TransactionPayments'][] = array(
-					'Title' => $order->get_payment_method_title(),
-					'Amount' => $cart_total,
-					'CurrencyIsoCode' => get_woocommerce_currency()
-
-				);
-				$request_array['TransactionVouchers'] = $vouchers;
-				$data = json_encode($request_array);
-				//print_r($request_array);
-				//exit;
-				$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
-				$response = wp_remote_request( $options['arcavis_link'].'/api/transactions',
-				    array(
-				        'method'     => 'POST',
-				        'body'    => $data,
-				        'headers' => array(
-				                'Authorization' => 'Basic ' . base64_encode( $options['arcavis_username'] . ':' . $options['arcavis_password']),
-				                'Content-Type' => 'application/json',
-				        ),
-				    )
-				);
-				$json_response = wp_remote_retrieve_body($response);
-				$response_body = json_decode($json_response);
-
-							
-				if($response_body->IsSuccessful === true && $response_body->Message == 'Success'){
-
-					update_post_meta($order_id,'acravis_repsonse',$json_response);
-					$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
-					$wc_arcavis_shop->sync->update_article_stock($options);
-					setcookie('arcavis_response','',time()-3600,'/');
-					$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='voucher'");
-				    $wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='discount'");
-				    $wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='response'");
-					
-				}
-
-
+				$this->arcavis_post_transaction($order_id, $session_id_at_checkout);
 			}
-			
+		}
+	}
+	
+	public function arcavis_post_transaction($order_id, $session_id_at_checkout)
+	{
+		global $wc_arcavis_shop;
+		global $wpdb;
+		$order = new WC_Order( $order_id );		
+
+		if(get_current_user_id()){
+			$current_user = wp_get_current_user();
+			$request_array['Customer'] = array(
+				'CustomerNumber' => 'WP-'.get_current_user_id(),
+				'LanguageId' => 'de',
+				'IsCompany' => $order->get_billing_company() == '' ? 'false' : 'true',
+				'CompanyName' => $order->get_billing_company(),
+				'Salutation' => '',
+				'SalutationTitle' => '',
+				'Firstname' => $current_user->user_firstname,
+				'Name' => $current_user->user_lastname,
+				'Street' => $order->get_billing_address_1(),
+				'StreetNumber' => '',
+				'StreetSupplement' => '',
+				'PoBox' => '',
+				'Zip' => $order->get_billing_postcode(),
+				'City' => $order->get_billing_city(),
+				'CountryIsoCode' => $order->get_billing_country(),
+				'ContactEmail' => $current_user->user_email,
+				'ContactPhone' => $order->get_billing_phone(),
+				'ContactMobile' => '',
+				'Birthdate' => ''
+			);
 		}
 		
+		$arcavis_response_json = $wpdb->get_row("SELECT transaction_response FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='response'");
+		$arcavis_response = json_decode(stripslashes($arcavis_response_json->transaction_response));
+		
+		
+		$cart_total = $arcavis_response->Result->AmountOpen; //round($order->get_total(),1, PHP_ROUND_HALF_EVEN);
+		$request_array['Amount'] = $cart_total;
+		$request_array['AmountOpen'] = $cart_total;
+		$request_array['Remarks'] = "Bestell-ID:".$order_id." Bemerkung: ".$order->customer_message;//$arcavis_response->Result->Remarks;
 
+		
+
+		$request_array['TransactionArticles'] = $arcavis_response->Result->TransactionArticles;//array_merge($cart_data,$shipping_data);
+		$vouchers = array();
+		if(!empty($arcavis_response->Result->TransactionVouchers)){
+			$vouchers = $arcavis_response->Result->TransactionVouchers;
+		}
+		
+		
+		$request_array['TransactionPayments'][] = array(
+			'Title' => $order->get_payment_method_title(),
+			'Amount' => $cart_total,
+			'CurrencyIsoCode' => get_woocommerce_currency()
+
+		);
+		$request_array['TransactionVouchers'] = $vouchers;
+		$data = json_encode($request_array);
+		//print_r($request_array);
+		//exit;
+		$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
+		$response = wp_remote_request( $options['arcavis_link'].'/api/transactions',
+			array(
+				'method'     => 'POST',
+				'body'    => $data,
+				'headers' => array(
+						'Authorization' => 'Basic ' . base64_encode( $options['arcavis_username'] . ':' . $options['arcavis_password']),
+						'Content-Type' => 'application/json',
+				),
+			)
+		);
+		$json_response = wp_remote_retrieve_body($response);
+		$response_body = json_decode($json_response);
+
+					
+		if($response_body->IsSuccessful === true && $response_body->Message == 'Success'){
+			
+			update_post_meta($order_id,'acravis_response',$json_response);
+			$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
+			$wc_arcavis_shop->sync->update_article_stock($options);
+			setcookie('arcavis_response','',time()-3600,'/');
+			$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='voucher'");
+			$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='discount'");
+			$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='response'");
+			
+		}
+		return $response_body;
 	}
 
 	

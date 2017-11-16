@@ -1,6 +1,6 @@
 jQuery(document).ready(function(){
 	jQuery('#start_sync').click(function(){
-		var confirmaton = confirm('Are you sure you want to Reset shop data, this action may Delete all products of the shop ? ');
+		var confirmaton = confirm('Achtung! Bestehende Produkte und Bestellungen werden gelöscht. Fortfahren?');
 		if(confirmaton ===  true){
 			initialSync('yes');
 		}else{
