@@ -1,6 +1,6 @@
 jQuery(document).ready(function(){
 	
-	/* jQuery('#billing_email').blur(function(){
+	 /*jQuery('#billing_email').blur(function(){
      	jQuery('body').trigger('update_checkout');
      	
 	}); */

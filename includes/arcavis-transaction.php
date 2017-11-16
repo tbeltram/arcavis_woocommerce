@@ -92,7 +92,7 @@ class WooCommerce_Arcavis_Transaction {
 				if(get_current_user_id()){
 					$current_user = wp_get_current_user();
 					$request_array['Customer'] = array(
-						'CustomerNumber' => $current_user->user_email,
+						'CustomerNumber' => 'WP-'.get_current_user_id(),
 						'LanguageId' => '',
 						'IsCompany' => $billing_company == '' ? 'false' : 'true',
 						'CompanyName' => $billing_company,
@@ -306,11 +306,10 @@ class WooCommerce_Arcavis_Transaction {
 		$arcavis_response_json = $wpdb->get_row("SELECT transaction_response FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='response'");
 		$arcavis_response = json_decode(stripslashes($arcavis_response_json->transaction_response));
 		
-		
 		$cart_total = $arcavis_response->Result->AmountOpen; //round($order->get_total(),1, PHP_ROUND_HALF_EVEN);
 		$request_array['Amount'] = $cart_total;
 		$request_array['AmountOpen'] = $cart_total;
-		$request_array['Remarks'] = "Bestell-ID:".$order_id." Bemerkung: ".$order->customer_message;//$arcavis_response->Result->Remarks;
+		$request_array['Remarks'] = $order_id;//." Bemerkung: ".$order->customer_message;//$arcavis_response->Result->Remarks;
 
 		
 
@@ -319,15 +318,18 @@ class WooCommerce_Arcavis_Transaction {
 		if(!empty($arcavis_response->Result->TransactionVouchers)){
 			$vouchers = $arcavis_response->Result->TransactionVouchers;
 		}
-		
-		
-		$request_array['TransactionPayments'][] = array(
-			'Title' => $order->get_payment_method_title(),
-			'Amount' => $cart_total,
-			'CurrencyIsoCode' => get_woocommerce_currency()
-
-		);
 		$request_array['TransactionVouchers'] = $vouchers;
+		
+		$payments = array();
+		if($cart_total>0){
+			$payments = array(
+				'Title' => $order->get_payment_method_title(),
+				'Amount' => $cart_total,
+				'CurrencyIsoCode' => get_woocommerce_currency()
+			);
+		}
+		$request_array['TransactionPayments'][] = $payments;
+		
 		$data = json_encode($request_array);
 		//print_r($request_array);
 		//exit;
@@ -349,8 +351,8 @@ class WooCommerce_Arcavis_Transaction {
 		if($response_body->IsSuccessful === true && $response_body->Message == 'Success'){
 			
 			update_post_meta($order_id,'acravis_response',$json_response);
-			$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
-			$wc_arcavis_shop->sync->update_article_stock($options);
+			//$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
+			//$wc_arcavis_shop->sync->update_article_stock($options);
 			setcookie('arcavis_response','',time()-3600,'/');
 			$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='voucher'");
 			$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='discount'");

@@ -29,7 +29,7 @@ function wc_arcavis_gateway_init() {
 			if(strpos(get_locale(), 'en') == 0){
 				$this->method_title       	= __( 'Arcavis Invoice', 'arcavis_invoice' );  
 				$this->method_description 	= __( 'Pay by invoice with the Arcavis invoice module', 'arcavis_invoice' );
-				$this->title              	= __( 'Invoice', 'arcavis_invoice' );
+				//$this->title              	= __( 'Invoice', 'arcavis_invoice' );
 			}
 		}
 
