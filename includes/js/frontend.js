@@ -4,13 +4,19 @@ jQuery(document).ready(function(){
      	jQuery('body').trigger('update_checkout');
      	
 	}); */
-	jQuery('#arcavis_voucher').blur(function(){
+    jQuery('#arcavis_voucher').off('keyup').on('keyup', function (event) {
+        if (jQuery('#arcavis_voucher').val() != '' && event.keyCode === 13) {
+            jQuery('#arcavis_applied_voucher').val(jQuery('#arcavis_voucher').val()).trigger('change');
+        }
+    });
+	jQuery('#arcavis_voucher').off('blur').on('blur',function(){
 		if(jQuery('#arcavis_voucher').val() != ''){
 			jQuery('#arcavis_applied_voucher').val(jQuery('#arcavis_voucher').val()).trigger('change');
 		}
 	});
-	jQuery('#arcavis_applied_voucher').change(function(){
-		jQuery('body').trigger('update_checkout')
+	jQuery('#arcavis_applied_voucher').off('change').on('change',function(){
+		jQuery('body').trigger('update_checkout');
+		// Wait until post_check_transaction finished...
 		setTimeout(function(){
 			jQuery.ajax({
 				
@@ -43,8 +49,7 @@ jQuery(document).ready(function(){
 		
 	});
 
-
-	jQuery(document).on("click",'#arcavis_voucher_remove_link',function(){
+	jQuery(document).off('click').on("click",'#arcavis_voucher_remove_link',function(){
 		jQuery('#arcavis_voucher').val('');
 		jQuery('#arcavis_applied_voucher').val('');
 		jQuery(document).find('#applied_voucher_wrapper').remove();		

@@ -4,16 +4,16 @@ session_start();
 /*This Class use for the handing Check transaction and Post Transaction API Calls*/
 class WooCommerce_Arcavis_Transaction {
 	public function __construct(){		
-		add_action( 'woocommerce_cart_calculate_fees', array( $this, 'arcavis_check_transaction') );
+		add_action('woocommerce_cart_calculate_fees', array( $this, 'arcavis_check_transaction') );
 		add_action('wp_enqueue_scripts', array( $this,'acravis_script'));
-		add_action ( 'wp_head', array($this,'arcavis_js_variables'));
-		add_filter( 'woocommerce_coupons_enabled', array( $this,'hide_coupon_field_on_cart') );
+		add_action ('wp_head', array($this,'arcavis_js_variables'));
+		add_filter('woocommerce_coupons_enabled', array( $this,'hide_coupon_field_on_cart') );
 		add_action('woocommerce_before_checkout_billing_form', array( $this,'customise_checkout_field'));
 		add_action('wp_ajax_arcavis_get_applied_voucher_code', array($this,'arcavis_get_applied_voucher_code'));
 		add_action('wp_ajax_nopriv_arcavis_get_applied_voucher_code', array($this,'arcavis_get_applied_voucher_code'));		
-		add_action( 'woocommerce_order_status_changed', array( $this, 'arcavis_process_transaction'), 99, 3 ); 
+		add_action('woocommerce_order_status_changed', array( $this, 'arcavis_process_transaction'), 99, 3 ); 
 		add_action('woocommerce_checkout_order_processed', array( $this, 'order_process'), 10, 1);
-		add_filter( 'woocommerce_payment_gateways', 'add_arcavis_gateway' );
+		add_filter('woocommerce_payment_gateways', 'add_arcavis_gateway' );
 		//add_filter('woocommerce_checkout_place_order', array( $this,'checkout_place_order') );
 	}
 
@@ -26,6 +26,7 @@ class WooCommerce_Arcavis_Transaction {
 		  <?php   
 	}
 
+	## Returns the applied voucher codes from check transaction call to show to the user
 	public function arcavis_get_applied_voucher_code(){
 		global $wpdb;
 		$applied_vouchers = $wpdb->get_row("SELECT * FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."' AND discount_type='voucher'");
@@ -70,7 +71,6 @@ class WooCommerce_Arcavis_Transaction {
 
 	public function acravis_script() {
 		wp_add_inline_script( 'arcavis_frontend', 'var website_url='.site_url() );
-		
 		wp_enqueue_script( 'arcavis_frontend_js', plugin_dir_url( __FILE__ ) . 'js/frontend.js' );
 	}
 	
@@ -113,7 +113,7 @@ class WooCommerce_Arcavis_Transaction {
 						'Birthdate' => ''
 					);
 				}
-				
+
 				$cart_total = preg_replace("/[^0-9,.]/", "",html_entity_decode($woocommerce->cart->get_cart_total())); //
 
 				$cart_total = $cart_total+$woocommerce->cart->shipping_total;
@@ -141,7 +141,7 @@ class WooCommerce_Arcavis_Transaction {
 		           $i++;
 		        } 
 		        $shipping_data = array();
-		        
+
 		        $shipping_session = WC()->session->get('shipping_for_package_0');
 		        if(!empty($shipping_session)){        	
 		        	$shipping_data[] = array(
@@ -161,9 +161,7 @@ class WooCommerce_Arcavis_Transaction {
 				}				
 				
 				$request_array['TransactionVouchers'] = $vouchers;
-				
 
-				
 				$data = json_encode($request_array);
 			
 				$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
@@ -180,7 +178,7 @@ class WooCommerce_Arcavis_Transaction {
 				);
  				$json_response = wp_remote_retrieve_body($response);
 				$response_body = json_decode($json_response);
-				
+
 				if(isset($response_body->Result->AmountOpen)){
 
 					if(!empty($response_body->Result->TransactionVouchers)){
@@ -188,8 +186,7 @@ class WooCommerce_Arcavis_Transaction {
 						$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."' AND discount_type='voucher'");
 
 						$wpdb->insert($wpdb->prefix ."applied_vouchers", array( 'session_id' => session_id(), 'voucher_code' => $response_body->Result->TransactionVouchers[0]->VoucherId,'discount_amount' => $response_body->Result->TransactionVouchers[0]->Amount,'discount_type' => 'voucher' ));
-
-						
+	
 					}else{
 						
 						$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."' AND discount_type='voucher'");
@@ -232,8 +229,6 @@ class WooCommerce_Arcavis_Transaction {
 			$extra_fee_option_minorder	=  '0';
 			$extra_fee_option_cost = round($extra_fee_option_cost, 2);
 			$woocommerce->cart->add_fee( __($extra_fee_option_label, 'woocommerce'), $extra_fee_option_cost, $extra_fee_option_taxable );
-			
-			
 		}
 		## Voucher Discount on checkout page is added from here.
 		$applied_vouchers = $wpdb->get_row("SELECT * FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."' AND discount_type='voucher'");
@@ -252,18 +247,18 @@ class WooCommerce_Arcavis_Transaction {
 		
 	}
 
-	public function order_process($order_id, $posted_data, $order){
-
+	public function order_process($order_id){
+		
 		update_post_meta($order_id,'session_id_at_checkout',session_id());
-
+	
 	}
 
 	## This function call the Post Tranasction API of Arcavis.
 	public function arcavis_process_transaction( $order_id, $old_status, $new_status ){
 		global $wc_arcavis_shop;
-		global $wpdb;
+		global $wpdb;	
 		$session_id_at_checkout = get_post_meta($order_id,'session_id_at_checkout',true);
-		
+
 		if(in_array($new_status,array('on-hold','completed','processing'))){
 			$transactions_done_or_not = get_post_meta($order_id,'acravis_response',true);
 			if(!$transactions_done_or_not){
@@ -358,6 +353,8 @@ class WooCommerce_Arcavis_Transaction {
 			$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='discount'");
 			$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".$session_id_at_checkout."' AND discount_type='response'");
 			
+		}else{
+			$wc_arcavis_shop->logError('Post Transaction '.$response_body->Message);
 		}
 		return $response_body;
 	}

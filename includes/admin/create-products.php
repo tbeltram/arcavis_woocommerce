@@ -184,7 +184,6 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		$wpdb->query("TRUNCATE TABLE ".$wpdb->prefix ."lastSyncPage");
 
 		$wpdb->insert($wpdb->prefix ."lastSyncTicks", array( 'apiName' => 'articles', 'lastSync' => '' , 'updated' => '' ));
-		$wpdb->insert($wpdb->prefix ."lastSyncTicks", array( 'apiName' => 'vouchers', 'lastSync' => '' , 'updated' => '' ));
 		$wpdb->insert($wpdb->prefix ."lastSyncTicks", array( 'apiName' => 'articlestocks', 'lastSync' => '' , 'updated' => ''));
 		$wpdb->insert($wpdb->prefix ."lastSyncPage", array( 'lastPage' => '1'));
 
@@ -362,12 +361,8 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 					}// End of foreach loop
 					
 					$wpdb->update($wpdb->prefix."lastSyncTicks", array('lastSync'=>$products->DataAgeTicks), array('apiName'=>'articles'));
-
-					
-					//wp_clear_scheduled_hook( 'arcavis_initial_sync_hook' );
-					
 				}//end of checking products are empty or not.
-					//$this->create_vouchers($options);
+
 				$this->update_article_stock($options);
 			}
 		}catch (Exception $e) 

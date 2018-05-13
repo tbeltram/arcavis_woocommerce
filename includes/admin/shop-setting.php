@@ -38,7 +38,7 @@ class WooCommerce_Arcavis_Shop_Admin_Settings{
 		<div>
 			<h3><?php echo $wc_arcavis_shop->text_syncstarted; ?></h3>
 			<h4><?php echo $wc_arcavis_shop->text_dontreload; ?></h4>
-			<img src="<?php echo site_url('wp-content/plugins/woocommerce-arcavis-shop/includes/images/Spinner.gif'); ?>">  
+			<img src="<?php echo site_url('wp-content/plugins/woocommerce-arcavis-shop/includes/images/spinner.gif'); ?>">  
 		</div>	
 		</div>
 		<div class="arcavis_setting_page">
@@ -64,13 +64,16 @@ class WooCommerce_Arcavis_Shop_Admin_Settings{
 				
 				 <?php
 				 if(rtrim($_POST["arcavis_link"],'/') != $setting_option['arcavis_link'] || $_POST["arcavis_username"] != $setting_option['arcavis_username']){
+					// Something changed, run complete sync
 					?>
 					 <script type="text/javascript">
-						sync_on_save_api('yes');
-					 
+						startSync();
 					 </script>
 					<?php
 
+				 }else{
+					// Only trigger update manually
+					$wc_arcavis_shop->arcavis_start_update_sync();
 				 }
 				 ?>
 				 
@@ -105,7 +108,7 @@ class WooCommerce_Arcavis_Shop_Admin_Settings{
 			  </tr>
 			  </table>
 			  <div class="row" style="margin-top:20px">
-				<input name="submit" id="submit" class="button button-primary" value="<?php echo $wc_arcavis_shop->text_settingspage_savebutton; ?>" type="submit" onclick="return confirm('<?php echo $wc_arcavis_shop->text_settingspage_syncwarning; ?>')">
+				<input name="submit" id="submit" class="button button-primary" value="<?php echo $wc_arcavis_shop->text_settingspage_savebutton; ?>" type="submit">
 			  </div>
 			  <div class="row" style="margin-top:20px">
 				<form action="" method="post" >	
