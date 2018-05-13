@@ -22,11 +22,12 @@ jQuery(document).ready(function(){
 	            delete_or_not : delete_or_not      
 	        },
             success: function (data) {	
-                jQuery('#arcavis_preloader').hide();
-	        	if(data == 'continue'){
+                if(data == 'continue'){
 	        		setTimeout(function(){
-                        syncLoop('no');
-	        		},10000);
+	        			syncLoop('no');
+                    }, 10000);
+	        	}else{
+	        		jQuery('#arcavis_preloader').hide();
 	        	}
 
 	        },

@@ -38,7 +38,7 @@ class WooCommerce_Arcavis_Shop_Admin_Settings{
 		<div>
 			<h3><?php echo $wc_arcavis_shop->text_syncstarted; ?></h3>
 			<h4><?php echo $wc_arcavis_shop->text_dontreload; ?></h4>
-			<img src="<?php echo site_url('wp-content/plugins/woocommerce-arcavis-shop/includes/images/spinner.gif'); ?>">  
+			<img src="<?php echo site_url('wp-content/plugins/woocommerce-arcavis-shop/includes/images/Spinner.gif'); ?>">  
 		</div>	
 		</div>
 		<div class="arcavis_setting_page">
