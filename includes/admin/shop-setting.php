@@ -43,7 +43,7 @@ class WooCommerce_Arcavis_Shop_Admin_Settings{
 		</div>
 		<div class="arcavis_setting_page">
 			<div class="row">
-			<img src='http://www.arcavis.ch/wp-content/uploads/2016/05/arcavis_logo-e1463489542702.png'>	
+			<img src='https://www.arcavis.ch/wp-content/uploads/2018/06/Arcavis_bg-trans_Logo_1000px.png'>	
 			</div>
 			<div class="postbox-container">
 				<div class="header"><?php echo $wc_arcavis_shop->text_settingspage_credentials; ?></div>
