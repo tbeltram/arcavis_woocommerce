@@ -38,12 +38,12 @@ class WooCommerce_Arcavis_Shop_Admin_Settings{
 		<div>
 			<h3><?php echo $wc_arcavis_shop->text_syncstarted; ?></h3>
 			<h4><?php echo $wc_arcavis_shop->text_dontreload; ?></h4>
-			<img src="<?php echo site_url('wp-content/plugins/arcavis-woocommerce/includes/images/Spinner.gif'); ?>">  
+			<img src="<?php echo site_url('wp-content/plugins/arcavis_woocommerce/includes/images/Spinner.gif'); ?>">  
 		</div>	
 		</div>
 		<div class="arcavis_setting_page">
 			<div class="row">
-			<img src='https://www.arcavis.ch/wp-content/uploads/2018/06/Arcavis_bg-trans_Logo_1000px.png'>	
+			<img src='https://www.arcavis.ch/wp-content/uploads/2018/06/Arcavis_bg-trans_Logo_1000px.png' width="200">	
 			</div>
 			<div class="postbox-container">
 				<div class="header"><?php echo $wc_arcavis_shop->text_settingspage_credentials; ?></div>
