@@ -83,9 +83,9 @@ class WooCommerce_Arcavis_Transaction {
 		global $wc_arcavis_shop;
 		global $wpdb;		
 
-		if(!empty($_POST)){
-
+		if(!empty($_POST) && !empty($_POST['post_data'])){
 			$data = $_POST['post_data'];
+			$wc_arcavis_shop->logDebug('POST DATA '. $data);
 			parse_str($data);
 			if($billing_email != '' || $arcavis_voucher != '' || $arcavis_voucher == ''){
 
@@ -164,7 +164,7 @@ class WooCommerce_Arcavis_Transaction {
 				$request_array['TransactionVouchers'] = $vouchers;
 				
 				$data = json_encode($request_array);
-				
+				$wc_arcavis_shop->logDebug('PUT Query '. $data);
 				$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
 			
 				$response = wp_remote_request( $options['arcavis_link'].'/api/transactions',
@@ -214,44 +214,44 @@ class WooCommerce_Arcavis_Transaction {
 
 					$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."'  AND discount_type='response'");
 					$wpdb->insert($wpdb->prefix ."applied_vouchers", array( 'session_id' => session_id(), 'discount_type' => 'response', 'transaction_response' => $json_response));
-				}						
+				}				
 			}
 		}
-
-		$applied_disocunt = $wpdb->get_row("SELECT * FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."' AND discount_type='discount'");
-		## Arcavis Discount on checkout page is added from here.
-		if(!empty($applied_disocunt)){
-		
 			
-			$extra_fee_option_label		= $wc_arcavis_shop->text_discount;
-			$extra_fee_option_cost		=  '-'.$applied_disocunt->discount_amount;
-			$extra_fee_option_type		=  'fixed';
-			$extra_fee_option_taxable	=  false;
-			$extra_fee_option_minorder	=  '0';
-			$extra_fee_option_cost = round($extra_fee_option_cost, 2);
-			$woocommerce->cart->add_fee( __($extra_fee_option_label, 'woocommerce'), $extra_fee_option_cost, $extra_fee_option_taxable );
-		}
-		## Voucher Discount on checkout page is added from here.
-		$applied_vouchers = $wpdb->get_row("SELECT * FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."' AND discount_type='voucher'");
-		if(!empty($applied_vouchers)){
-		
-
-			$extra_fee_option_label		=  $wc_arcavis_shop->text_voucher;
-			$extra_fee_option_cost		=  '-'.$applied_vouchers->discount_amount;
-			$extra_fee_option_type		=  'fixed';
-			$extra_fee_option_taxable	=  false;
-			$extra_fee_option_minorder	=  '0';
-			$extra_fee_option_cost = round($extra_fee_option_cost, 2);
-			$woocommerce->cart->add_fee( __($extra_fee_option_label, 'woocommerce'), $extra_fee_option_cost, $extra_fee_option_taxable );
+			$applied_disocunt = $wpdb->get_row("SELECT * FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."' AND discount_type='discount'");
+			## Arcavis Discount on checkout page is added from here.
+			if(!empty($applied_disocunt)){
+			
+				
+				$extra_fee_option_label		= $wc_arcavis_shop->text_discount;
+				$extra_fee_option_cost		=  '-'.$applied_disocunt->discount_amount;
+				$extra_fee_option_type		=  'fixed';
+				$extra_fee_option_taxable	=  false;
+				$extra_fee_option_minorder	=  '0';
+				$extra_fee_option_cost = round($extra_fee_option_cost, 2);
+				$woocommerce->cart->add_fee( __($extra_fee_option_label, 'woocommerce'), $extra_fee_option_cost, $extra_fee_option_taxable );
+			}
+			## Voucher Discount on checkout page is added from here.
+			$applied_vouchers = $wpdb->get_row("SELECT * FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."' AND discount_type='voucher'");
+			if(!empty($applied_vouchers)){
+			
+	
+				$extra_fee_option_label		=  $wc_arcavis_shop->text_voucher;
+				$extra_fee_option_cost		=  '-'.$applied_vouchers->discount_amount;
+				$extra_fee_option_type		=  'fixed';
+				$extra_fee_option_taxable	=  false;
+				$extra_fee_option_minorder	=  '0';
+				$extra_fee_option_cost = round($extra_fee_option_cost, 2);
+				$woocommerce->cart->add_fee( __($extra_fee_option_label, 'woocommerce'), $extra_fee_option_cost, $extra_fee_option_taxable );
+				
+			}
 			
 		}
-		
-	}
 
 	public function order_process($order_id){
 		
 		update_post_meta($order_id,'session_id_at_checkout',session_id());
-	
+		
 	}
 
 	## This function call the Post Tranasction API of Arcavis.
