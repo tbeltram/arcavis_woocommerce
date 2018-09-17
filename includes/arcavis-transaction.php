@@ -7,13 +7,14 @@ class WooCommerce_Arcavis_Transaction {
 		add_action('woocommerce_cart_calculate_fees', array( $this, 'arcavis_check_transaction') );
 		add_action('wp_enqueue_scripts', array( $this,'acravis_script'));
 		add_action ('wp_head', array($this,'arcavis_js_variables'));
-		add_filter('woocommerce_coupons_enabled', array( $this,'hide_coupon_field_on_cart') );
 		add_action('woocommerce_before_checkout_billing_form', array( $this,'customise_checkout_field'));
 		add_action('wp_ajax_arcavis_get_applied_voucher_code', array($this,'arcavis_get_applied_voucher_code'));
 		add_action('wp_ajax_nopriv_arcavis_get_applied_voucher_code', array($this,'arcavis_get_applied_voucher_code'));		
 		add_action('woocommerce_order_status_changed', array( $this, 'arcavis_process_transaction'), 99, 3 ); 
 		add_action('woocommerce_checkout_order_processed', array( $this, 'order_process'), 10, 1);
-		add_filter('woocommerce_payment_gateways', 'add_arcavis_gateway' );
+
+		add_filter('woocommerce_coupons_enabled', array( $this,'hide_coupon_field_on_cart') );
+		//add_filter('woocommerce_payment_gateways', 'add_arcavis_gateway' );
 		//add_filter('woocommerce_checkout_place_order', array( $this,'checkout_place_order') );
 	}
 
@@ -161,9 +162,9 @@ class WooCommerce_Arcavis_Transaction {
 				}				
 				
 				$request_array['TransactionVouchers'] = $vouchers;
-
+				
 				$data = json_encode($request_array);
-			
+				
 				$options = $wc_arcavis_shop->settings_obj->get_arcavis_settings();
 			
 				$response = wp_remote_request( $options['arcavis_link'].'/api/transactions',
@@ -213,7 +214,7 @@ class WooCommerce_Arcavis_Transaction {
 
 					$wpdb->query("DELETE FROM ".$wpdb->prefix."applied_vouchers WHERE session_id='".session_id()."'  AND discount_type='response'");
 					$wpdb->insert($wpdb->prefix ."applied_vouchers", array( 'session_id' => session_id(), 'discount_type' => 'response', 'transaction_response' => $json_response));
-				}				
+				}						
 			}
 		}
 

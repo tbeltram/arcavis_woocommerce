@@ -78,6 +78,7 @@ class WC_Arcavis_Shop {
 		add_action('wp_ajax_arcavis_start_initial_sync', array($this,'arcavis_start_initial_sync'));
 		add_action('wp_ajax_nopriv_arcavis_start_initial_sync', array($this,'arcavis_start_initial_sync'));
 		add_action('arcavis_schedule_api_hook', array($this,'arcavis_start_update_sync'));
+		add_action( 'plugins_loaded', 'add_arcavis_gateway' );
 		register_deactivation_hook( __FILE__, array($this,'deactivate_tasks') );
 		
 		// Locale English
@@ -122,6 +123,8 @@ class WC_Arcavis_Shop {
 
     ## This function will run at the time of plugin activation set up cron, custom database tables..
     public function activation_tasks(){    	
+		
+		
 		
 		if ( ! wp_next_scheduled('arcavis_schedule_api_hook' )) {
 			wp_schedule_event( time(), 'arcavis_minutes', 'arcavis_schedule_api_hook' );			

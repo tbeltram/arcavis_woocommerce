@@ -31,6 +31,17 @@ function wc_arcavis_gateway_init() {
 				$this->method_description 	= __( 'Pay by invoice with the Arcavis invoice module', 'arcavis_invoice' );
 				//$this->title              	= __( 'Invoice', 'arcavis_invoice' );
 			}
+			$this->init_form_fields();
+			$this->init_settings();
+			add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
+			$this->form_fields = array(
+				'enabled' => array(
+					'title' => __( 'Enable/Disable', 'woocommerce' ),
+					'type' => 'checkbox',
+					'label' => __( 'Enable/Disable', 'woocommerce' ),
+					'default' => 'yes'
+				)
+			);
 		}
 
 		
@@ -88,5 +99,6 @@ function wc_arcavis_gateway_init() {
 function add_arcavis_gateway( $methods ) {
 		$methods[] = 'WC_Arcavis_Gateway'; 
 		return $methods;
-	}
+}
+add_filter('woocommerce_payment_gateways', 'add_arcavis_gateway' );
 ?>

@@ -27,7 +27,6 @@ class WooCommerce_Arcavis_Shop_Admin_Settings{
 	public function arcavis_setting_page(){
 		global $wc_arcavis_shop;
 		global $wpdb;
-		screen_icon();
 		 $setting_option = $this->get_arcavis_settings();
 		 ?>
 		<script type="text/javascript">
