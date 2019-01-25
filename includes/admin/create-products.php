@@ -86,7 +86,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 							update_post_meta( $post_id, '_stock_status', $stockstatus);	
 							update_post_meta( $post_id,'_stock',$product->Stock);
 
-							$this->update_images($product->Images);
+							$this->update_images($product->Images,$post_id);
 							// Add Categories
 							$categories = $this->add_category($product->MainGroupTitle,$product->TradeGroupTitle,$product->ArticleGroupTitle);
 							$categories = array_map( 'intval', $categories );
@@ -311,7 +311,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						update_post_meta( $post_id, '_sale_price', $SalePrice );			
 						update_post_meta( $post_id,'_visibility','visible');	
 												
-						$this->update_images($product->Images);
+						$this->update_images($product->Images,$post_id);
 						// Set categories
 						$categories = $this->add_category($product->MainGroupTitle,$product->TradeGroupTitle,$product->ArticleGroupTitle);
 						$categories = array_map( 'intval', $categories );
@@ -683,37 +683,32 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 	}
 	
 	
-	public function update_images($image,$post_id){
+	public function update_images($images,$post_id){
 		global $wc_arcavis_shop;
-		$list_id = '';
 		// only need these if performing outside of admin environment
 		require_once(ABSPATH . 'wp-admin/includes/media.php');
 		require_once(ABSPATH . 'wp-admin/includes/file.php');
 		require_once(ABSPATH . 'wp-admin/includes/image.php');
-		if(!empty($product->Images)){
+		if(!empty($images)){
+			$list_id = '';
 			$first = true;
-
-			foreach ($product->Images as $img) {
+			foreach ($images as $img) {
 				try{
-					$id = update_post_meta($post_id,'_product_image_gallery',rtrim($list_id,','));
-
+					$id = media_sideload_image($img->Value, $post_id,'','id');
 					//Add Image to gallery if upload is successful
 					if($id != ''){
-
 						$list_id .= $id.',';
-
 						//First image will be set as product thumbnail
 						if($first){
 							set_post_thumbnail($post_id, $id);
 							$first=false;
 						}
 					}
-				}catch (Exception $e) 
-				{
+				}catch (Exception $e) {
 					$wc_arcavis_shop->logError('create_products_init '.$e->getMessage());		
 				}
 			}
-			
+			update_post_meta($post_id,'_product_image_gallery',rtrim($list_id,','));
 		}
 	}
 
