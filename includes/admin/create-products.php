@@ -85,8 +85,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 							update_post_meta($post_id, '_manage_stock', 'yes' );
 							update_post_meta( $post_id, '_stock_status', $stockstatus);	
 							update_post_meta( $post_id,'_stock',$product->Stock);
-
-							$this->update_images($product->Images,$post_id);
+							if(!empty($product->Images))
+							{
+								$this->update_images($product->Images,$post_id);
+							}
 							// Add Categories
 							$categories = $this->add_category($product->MainGroupTitle,$product->TradeGroupTitle,$product->ArticleGroupTitle);
 							$categories = array_map( 'intval', $categories );
@@ -311,7 +313,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						update_post_meta( $post_id, '_sale_price', $SalePrice );			
 						update_post_meta( $post_id,'_visibility','visible');	
 												
-						$this->update_images($product->Images,$post_id);
+						if(!empty($product->Images))
+						{
+							$this->update_images($product->Images,$post_id);
+						}
 						// Set categories
 						$categories = $this->add_category($product->MainGroupTitle,$product->TradeGroupTitle,$product->ArticleGroupTitle);
 						$categories = array_map( 'intval', $categories );
@@ -689,27 +694,26 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		require_once(ABSPATH . 'wp-admin/includes/media.php');
 		require_once(ABSPATH . 'wp-admin/includes/file.php');
 		require_once(ABSPATH . 'wp-admin/includes/image.php');
-		if(!empty($images)){
-			$list_id = '';
-			$first = true;
-			foreach ($images as $img) {
-				try{
-					$id = media_sideload_image($img->Value, $post_id,'','id');
-					//Add Image to gallery if upload is successful
-					if($id != ''){
-						$list_id .= $id.',';
-						//First image will be set as product thumbnail
-						if($first){
-							set_post_thumbnail($post_id, $id);
-							$first=false;
-						}
+		$list_id = '';
+		$first = true;
+		foreach ($images as $img) {
+			try{
+				$id = media_sideload_image($img->Value, $post_id,'','id');
+				//Add Image to gallery if upload is successful
+				if($id != '' && !is_wp_error($id)){
+					$list_id .= $id.',';
+					//First image will be set as product thumbnail
+					if($first){
+						set_post_thumbnail($post_id, $id);
+						$first=false;
 					}
-				}catch (Exception $e) {
-					$wc_arcavis_shop->logError('create_products_init '.$e->getMessage());		
 				}
+			}catch (Exception $e) {
+				$wc_arcavis_shop->logError('create_products_init '.$e->getMessage());		
 			}
-			update_post_meta($post_id,'_product_image_gallery',rtrim($list_id,','));
 		}
+		update_post_meta($post_id,'_product_image_gallery',rtrim($list_id,','));
+		
 	}
 
 	function check_product_existance($article_id){
