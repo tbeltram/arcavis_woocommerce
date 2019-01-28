@@ -701,11 +701,13 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 				$id = media_sideload_image($img->Value, $post_id,'','id');
 				//Add Image to gallery if upload is successful
 				if($id != '' && !is_wp_error($id)){
-					$list_id .= $id.',';
 					//First image will be set as product thumbnail
 					if($first){
 						set_post_thumbnail($post_id, $id);
 						$first=false;
+					}
+					else{
+						$list_id .= $id.',';
 					}
 				}
 			}catch (Exception $e) {
