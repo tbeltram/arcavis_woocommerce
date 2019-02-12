@@ -23,16 +23,16 @@ jQuery(document).ready(function(){
 	        },
             success: function (data) {	
                 if(data == 'continue'){
-	        		setTimeout(function(){
 	        			syncLoop('no');
-                    }, 10000);
 	        	}else{
 	        		jQuery('#arcavis_preloader').hide();
 	        	}
 
 	        },
 	        error: function(errorThrown){
-	            console.log(errorThrown);
+				console.log(errorThrown);
+				window.alert("Error:" + errorThrown)
+				jQuery('#arcavis_preloader').hide();
 	        }
 	    });
 		

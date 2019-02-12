@@ -1,11 +1,13 @@
 <?php
 /*This Class Has functions for Syncronize the products from arcavis.*/
 set_time_limit(0);
+require_once(WP_PLUGIN_DIR  . '/woocommerce/includes/libraries/wp-async-request.php');
+require_once(WP_PLUGIN_DIR  . '/woocommerce/includes/libraries/wp-background-process.php');
 class WooCommerce_Arcavis_Create_Products_Settings{
-	
-	public function __construct(){
+	private $_background_process;
 
-		
+	public function __construct(){
+		$this->_background_process = new Update_Images_Process();
 	}
 
 	##This function is used for running first time sysc or re-sync.
@@ -30,7 +32,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 			$lastSync = $wc_arcavis_shop->get_last_sync('articles');
 			if($lastSync == ''){
 				$lastSyncPage = $wc_arcavis_shop->get_last_page();			
-				$url = $options['arcavis_link'].'/api/articles?mainArticleId=0&inclStock=true&inclTags=true&ignSupp=true&ignIdents=true&pageSize=25&page='.$lastSyncPage;
+				$url = $options['arcavis_link'].'/api/articles?mainArticleId=0&inclStock=true&inclTags=true&ignSupp=true&ignIdents=true&pageSize=100&page='.$lastSyncPage;
 				$request_args = array(
 				  'headers' => array(
 					'Authorization' => 'Basic ' . base64_encode( $options['arcavis_username'] . ':' . $options['arcavis_password'] )
@@ -85,10 +87,12 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 							update_post_meta($post_id, '_manage_stock', 'yes' );
 							update_post_meta( $post_id, '_stock_status', $stockstatus);	
 							update_post_meta( $post_id,'_stock',$product->Stock);
+
 							if(!empty($product->Images))
 							{
 								$this->update_images($product->Images,$post_id);
 							}
+
 							// Add Categories
 							$categories = $this->add_category($product->MainGroupTitle,$product->TradeGroupTitle,$product->ArticleGroupTitle);
 							$categories = array_map( 'intval', $categories );
@@ -118,7 +122,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 								   
 							}// End of add variations
 					}// End of foreach loop
-
+					$this->_background_process->save()->dispatch();
 					if($products->TotalPages <= $lastSyncPage){
 						$wpdb->update($wpdb->prefix."lastSyncTicks", array('lastSync' => $products->DataAgeTicks), array('apiName'=>'articles'));
 						$wpdb->update($wpdb->prefix."lastSyncTicks", array('lastSync' => $products->DataAgeTicks), array('apiName'=>'articlestocks'));			
@@ -142,6 +146,8 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		}catch (Exception $e) 
 		{
 			$wc_arcavis_shop->logError('create_products_init '.$e->getMessage());
+			echo $e->getMessage();
+			exit;
 		}
 	}
 
@@ -153,6 +159,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		if(!empty($products)){
 			foreach ($products as $product) {				
 				wp_delete_attachment( $product->ID, true );
+				$attachments = get_attached_media( '', $product->ID );
+				foreach ($attachments as $attachment) {
+				  wp_delete_attachment( $attachment->ID, 'true' );
+				}
 			}
 		}
 			
@@ -241,7 +251,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						
 						$wpdb->query("DELETE FROM ".$wpdb->prefix."postmeta WHERE post_id IN (".rtrim($product_string,',').")");
 						$wpdb->query("DELETE FROM ".$wpdb->prefix."posts WHERE ID IN (".rtrim($product_string,',').")");
-						$wpdb->query("DELETE FROM ".$wpdb->prefix."term_relationships WHERE object_id NOT IN (SELECT ID FROM ".$wpdb->prefix."posts WHERE post_type IN ('product','product_variation') )");
+						$wpdb->query("DELETE FROM ".$wpdb->prefix."term_relationships WHERE object_id IN (".rtrim($product_string,',').")");
 						$wpdb->query("UPDATE ".$wpdb->prefix."term_taxonomy tt SET count = (SELECT count(p.ID) FROM ".$wpdb->prefix."term_relationships tr LEFT JOIN ".$wpdb->prefix."posts p ON p.ID = tr.object_id WHERE tr.term_taxonomy_id = tt.term_taxonomy_id AND p.post_type IN ('product','product_variation') )");
 					}
 				}
@@ -312,7 +322,13 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						update_post_meta( $post_id, '_regular_price', $product->Price );
 						update_post_meta( $post_id, '_sale_price', $SalePrice );			
 						update_post_meta( $post_id,'_visibility','visible');	
-												
+						
+						
+						$attachments = get_attached_media( '', $post_id );
+						foreach ($attachments as $attachment) {
+						  wp_delete_attachment( $attachment->ID, 'true' );
+						}
+
 						if(!empty($product->Images))
 						{
 							$this->update_images($product->Images,$post_id);
@@ -346,7 +362,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						}
 						
 					}// End of foreach loop
-					
+					$this->_background_process->save()->dispatch();
 					$wpdb->update($wpdb->prefix."lastSyncTicks", array('lastSync'=>$products->DataAgeTicks), array('apiName'=>'articles'));
 				}//end of checking products are empty or not.
 
@@ -686,9 +702,64 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 			return $return;
 		}
 	}
-	
-	
-	public function update_images($images,$post_id){
+
+	function check_product_existance($article_id){
+		$args = array(
+		'post_type'		=>	'product',
+		'meta_query' => array(
+				array(
+					'key' => '_sku',
+					'value'     => $article_id,
+					'compare'   => '='
+				),
+			)
+		);
+		$products = get_posts($args);
+				
+		if(!empty($products)){
+			return $products[0]->ID;
+		}else{
+			return '';
+		}
+		
+	}
+
+	function update_images($images,$post_id){
+		$item = new UpdateImageItem();
+		$item->images = $images;
+		$item->post_id = $post_id;
+		$this->_background_process->push_to_queue($item);
+	}
+}
+
+
+class UpdateImageItem{
+	var $images;
+	var $post_id;
+}
+
+class Update_Images_Process extends WP_Background_Process {
+
+	/**
+	 * @var string
+	 */
+	protected $action = 'update_images_process';
+
+	/**
+	 * Task
+	 *
+	 * Override this method to perform any actions required on each
+	 * queue item. Return the modified item for further processing
+	 * in the next pass through. Or, return false to remove the
+	 * item from the queue.
+	 *
+	 * @param mixed $item Queue item to iterate over
+	 *
+	 * @return mixed
+	 */
+	protected function task( $item ) {
+		$images = $item->images;
+		$post_id = $item->post_id;
 		global $wc_arcavis_shop;
 		// only need these if performing outside of admin environment
 		require_once(ABSPATH . 'wp-admin/includes/media.php');
@@ -715,29 +786,22 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 			}
 		}
 		update_post_meta($post_id,'_product_image_gallery',rtrim($list_id,','));
-		
+		return false;
 	}
 
-	function check_product_existance($article_id){
-		$args = array(
-		'post_type'		=>	'product',
-		'meta_query' => array(
-				array(
-					'key' => '_sku',
-					'value'     => $article_id,
-					'compare'   => '='
-				),
-			)
-		);
-		$products = get_posts($args);
-				
-		if(!empty($products)){
-			return $products[0]->ID;
-		}else{
-			return '';
-		}
-		
+	/**
+	 * Complete
+	 *
+	 * Override if applicable, but ensure that the below actions are
+	 * performed, or, call parent::complete().
+	 */
+	protected function complete() {
+		parent::complete();
+
+		// Show notice to user or perform some other arbitrary task...
 	}
+
 }
+
 
 ?>
