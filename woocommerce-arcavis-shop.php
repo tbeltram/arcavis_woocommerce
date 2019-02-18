@@ -3,7 +3,7 @@
  * Plugin Name: 	Woocommerce Arcavis Shop
  * Plugin URI:		http://www.arcavis.ch
  * Description: 	Enable Arcavis shop in woocommerce.
- * Version: 		1.0.2
+ * Version: 		1.0.3
  * Author:			Sequens IT
  * Author URI:		http://www.arcavis.ch
  * Developer:		SD
@@ -31,7 +31,7 @@ class WC_Arcavis_Shop {
 
 	/**
 	 * @var WC_Arcavis_Shop - the single instance of the class
-	 * @since 1.0.2
+	 * @since 1.0.3
 	 */
 
 	protected static $_instance = null;

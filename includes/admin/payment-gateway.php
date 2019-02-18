@@ -7,7 +7,7 @@
  *
  * @class       WC_Arcavis_Gateway
  * @extends     WC_Payment_Gateway
- * @version     1.0.0
+ * @version     1.0.3
  * @package     WooCommerce/Classes/Payment
  * @author      bet
  * @description Payment gateway for customer account payments
@@ -97,7 +97,7 @@ function wc_arcavis_gateway_init() {
 
 
 function add_arcavis_gateway( $methods ) {
-		$methods[] = 'WC_Arcavis_Gateway'; 
+		$methods = array('WC_Arcavis_Gateway');
 		return $methods;
 }
 add_filter('woocommerce_payment_gateways', 'add_arcavis_gateway' );
