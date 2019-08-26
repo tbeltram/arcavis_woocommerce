@@ -15,6 +15,25 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		global $wc_arcavis_shop;
 		global $wpdb;
 		try{
+			
+			// Setting a custom timeout value for cURL. Using a high value for priority to ensure the function runs after any other added to the same action hook.
+			add_action('http_api_curl', 'sar_custom_curl_timeout', 9999, 1);
+			function sar_custom_curl_timeout( $handle ){
+			curl_setopt( $handle, CURLOPT_CONNECTTIMEOUT, 30 ); // 30 seconds. Too much for production, only for testing.
+			curl_setopt( $handle, CURLOPT_TIMEOUT, 30 ); // 30 seconds. Too much for production, only for testing.
+			}
+			// Setting custom timeout for the HTTP request
+			add_filter( 'http_request_timeout', 'sar_custom_http_request_timeout', 9999 );
+			function sar_custom_http_request_timeout( $timeout_value ) {
+			return 30; // 30 seconds. Too much for production, only for testing.
+			}
+			// Setting custom timeout in HTTP request args
+			add_filter('http_request_args', 'sar_custom_http_request_args', 9999, 1);
+			function sar_custom_http_request_args( $r ){
+			$r['timeout'] = 30; // 30 seconds. Too much for production, only for testing.
+			return $r;
+			}
+
 			if(isset($_POST['delete_or_not']) && $_POST['delete_or_not'] == 'yes'){
 				$this->delete_all_data();
 			}
@@ -32,7 +51,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 			$lastSync = $wc_arcavis_shop->get_last_sync('articles');
 			if($lastSync == ''){
 				$lastSyncPage = $wc_arcavis_shop->get_last_page();			
-				$url = $options['arcavis_link'].'/api/articles?mainArticleId=0&inclStock=true&inclTags=true&ignSupp=true&ignIdents=true&pageSize=100&page='.$lastSyncPage;
+				$url = $options['arcavis_link'].'/api/articles?mainArticleId=0&inclStock=true&inclTags=true&ignSupp=true&ignIdents=true&pageSize=50&page='.$lastSyncPage;
 				$request_args = array(
 				  'headers' => array(
 					'Authorization' => 'Basic ' . base64_encode( $options['arcavis_username'] . ':' . $options['arcavis_password'] )
@@ -40,6 +59,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 				);
 
 				$product_data = wp_remote_get($url,$request_args);
+				if(is_wp_error($product_data)){
+					$wc_arcavis_shop->logError('wp_remote_get failed '.$product_data->geterrormessage());
+					exit;
+				}
 				$products = json_decode($product_data['body']);
 				if(!empty($products)){
 					
@@ -111,6 +134,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 									wp_set_object_terms($post_id, 'variable', 'product_type');
 									$variation_url = $options['arcavis_link'].'/api/articles?mainArticleId='.$product->Id.'&inclStock=true&inclTags=true&ignSupp=true&ignIdents=true';
 									$variation_data = wp_remote_get($variation_url,$request_args);
+									if(is_wp_error($variation_data)){
+										$wc_arcavis_shop->logError('wp_remote_get failed '.$variation_data->geterrormessage());
+										exit;
+									}
 									$variations = json_decode($variation_data['body']);
 									if(!empty($variations)){
 										foreach ($variations->Result as $key => $variation) {
@@ -226,6 +253,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 				);
 				
 				$product_data = wp_remote_get($url,$request_args);
+				if(is_wp_error($product_data)){
+					$wc_arcavis_shop->logError('wp_remote_get failed '.$product_data->geterrormessage());
+					exit;
+				}
 				$products = json_decode($product_data['body']);
 				
 				if(isset($products->DeletedIds) && !empty($products->DeletedIds)){
@@ -350,6 +381,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 								wp_set_object_terms($post_id, 'variable', 'product_type');
 								$variation_url = $options['arcavis_link'].'/api/articles?mainArticleId='.$product->Id.'&inclStock=true&inclTags=true&ignSupp=true&ignIdents=true';
 								$variation_data = wp_remote_get($variation_url,$request_args);
+								if(is_wp_error($variation_data)){
+									$wc_arcavis_shop->logError('wp_remote_get failed '.$variation_data->geterrormessage());
+									exit;
+								}
 								$variations = json_decode($variation_data['body']);
 								if(!empty($variations)){
 									foreach ($variations->Result as $key => $variation) {
@@ -383,6 +418,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		  )
 		);
 		$stock_data = wp_remote_get($url,$request_args);
+		if(is_wp_error($stock_data)){
+			$wc_arcavis_shop->logError('wp_remote_get failed '.$stock_data->geterrormessage());
+			exit;
+		}
 		$stocks = json_decode(wp_remote_retrieve_body($stock_data));
 		if(!empty($stocks->Result)){
 			$total_stock = 0;
@@ -432,6 +471,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		  )
 		);
 		$stock_data = wp_remote_get($url,$request_args);
+		if(is_wp_error($stock_data)){
+			$wc_arcavis_shop->logError('wp_remote_get failed '.$stock_data->geterrormessage());
+			exit;
+		}
 		$stocks = json_decode(wp_remote_retrieve_body($stock_data));
 		if(!empty($stocks)){
 			foreach ($stocks->Result as $stock) {

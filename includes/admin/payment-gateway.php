@@ -7,7 +7,7 @@
  *
  * @class       WC_Arcavis_Gateway
  * @extends     WC_Payment_Gateway
- * @version     1.0.3
+ * @version     1.0.4
  * @package     WooCommerce/Classes/Payment
  * @author      bet
  * @description Payment gateway for customer account payments
