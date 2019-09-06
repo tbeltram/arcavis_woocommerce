@@ -343,17 +343,17 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						}
 						if($product->SalePrice == 0){
 							$SalePrice = '';
-							update_post_meta( $post_id, '_price', $product->Price );
+							update_post_meta($post_id, '_price', $product->Price );
 						}else{
 							$SalePrice = $product->SalePrice;
-							update_post_meta( $post_id, '_price', $SalePrice);
+							update_post_meta($post_id, '_price', $SalePrice);
 						}
 						
 						update_post_meta($post_id, '_sku', $product->ArticleNumber );
-						update_post_meta( $post_id,'article_id',$product->Id);
-						update_post_meta( $post_id, '_regular_price', $product->Price );
-						update_post_meta( $post_id, '_sale_price', $SalePrice );			
-						update_post_meta( $post_id,'_visibility','visible');	
+						update_post_meta($post_id,'article_id',$product->Id);
+						update_post_meta($post_id, '_regular_price', $product->Price );
+						update_post_meta($post_id, '_sale_price', $SalePrice );			
+						update_post_meta($post_id,'_visibility','visible');	
 						
 						
 						$attachments = get_attached_media( '', $post_id );
@@ -754,7 +754,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 
 	function check_product_existance($article_id){
 		$args = array(
-		'post_type'		=>	'product',
+		'post_type'		=> array('product','product_variation'),
 		'meta_query' => array(
 				array(
 					'key' => '_sku',
