@@ -1,4 +1,21 @@
 <?php
+// Setting a custom timeout value for cURL. Using a high value for priority to ensure the function runs after any other added to the same action hook.
+add_action('http_api_curl', 'sar_custom_curl_timeout', 9999, 1);
+function sar_custom_curl_timeout( $handle ){
+	curl_setopt( $handle, CURLOPT_CONNECTTIMEOUT, 30 ); // 30 seconds. Too much for production, only for testing.
+	curl_setopt( $handle, CURLOPT_TIMEOUT, 30 ); // 30 seconds. Too much for production, only for testing.
+}
+// Setting custom timeout for the HTTP request
+add_filter( 'http_request_timeout', 'sar_custom_http_request_timeout', 9999 );
+function sar_custom_http_request_timeout( $timeout_value ) {
+	return 30; // 30 seconds. Too much for production, only for testing.
+}
+// Setting custom timeout in HTTP request args
+add_filter('http_request_args', 'sar_custom_http_request_args', 9999, 1);
+function sar_custom_http_request_args( $r ){
+	$r['timeout'] = 30; // 30 seconds. Too much for production, only for testing.
+	return $r;
+}
 /*This Class Has functions for Syncronize the products from arcavis.*/
 set_time_limit(0);
 require_once(WP_PLUGIN_DIR  . '/woocommerce/includes/libraries/wp-async-request.php');
@@ -14,26 +31,8 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 	public function create_products_init(){			
 		global $wc_arcavis_shop;
 		global $wpdb;
-		try{
-			
-			// Setting a custom timeout value for cURL. Using a high value for priority to ensure the function runs after any other added to the same action hook.
-			add_action('http_api_curl', 'sar_custom_curl_timeout', 9999, 1);
-			function sar_custom_curl_timeout( $handle ){
-			curl_setopt( $handle, CURLOPT_CONNECTTIMEOUT, 30 ); // 30 seconds. Too much for production, only for testing.
-			curl_setopt( $handle, CURLOPT_TIMEOUT, 30 ); // 30 seconds. Too much for production, only for testing.
-			}
-			// Setting custom timeout for the HTTP request
-			add_filter( 'http_request_timeout', 'sar_custom_http_request_timeout', 9999 );
-			function sar_custom_http_request_timeout( $timeout_value ) {
-			return 30; // 30 seconds. Too much for production, only for testing.
-			}
-			// Setting custom timeout in HTTP request args
-			add_filter('http_request_args', 'sar_custom_http_request_args', 9999, 1);
-			function sar_custom_http_request_args( $r ){
-			$r['timeout'] = 30; // 30 seconds. Too much for production, only for testing.
-			return $r;
-			}
-
+		try
+		{
 			if(isset($_POST['delete_or_not']) && $_POST['delete_or_not'] == 'yes'){
 				$this->delete_all_data();
 			}
@@ -121,6 +120,8 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 							$categories = array_map( 'intval', $categories );
 							wp_set_object_terms( $post_id, $categories, 'product_cat' );
 							
+							// Unlink Tags
+							wp_delete_object_term_relationships( $post_id, 'product_tag' );
 							// Add Tags
 							if(array_key_exists("Tags", $product) && !empty($product->Tags)){
 								$tags = $this->add_tags($product->Tags);
@@ -368,6 +369,9 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						$categories = $this->add_category($product->MainGroupTitle,$product->TradeGroupTitle,$product->ArticleGroupTitle);
 						$categories = array_map( 'intval', $categories );
 						wp_set_object_terms( $post_id, $categories, 'product_cat' );
+						
+						// Unlink Tags
+						wp_delete_object_term_relationships( $post_id, 'product_tag' );
 						// Add Tags
 						if(array_key_exists("Tags", $product) && !empty($product->Tags)){
 							$tags = $this->add_tags($product->Tags);
@@ -619,21 +623,23 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		}
 		if($variation->SalePrice == 0){
 			$SalePrice = '';
+			update_post_meta( $variation_post_id, '_price', $variation->Price );
 		}else{
 			$SalePrice = $variation->SalePrice;
+			update_post_meta( $variation_post_id, '_price',$SalePrice );
 		}
 		$stockstatus='instock';
 		if($variation->Stock<=0){
 			$stockstatus='outofstock';
 		}
-		update_post_meta( $variation_post_id, '_sale_price', $SalePrice );
+		update_post_meta($variation_post_id, '_sale_price', $SalePrice );
 		update_post_meta($variation_post_id, '_price', $variation->Price);
 		update_post_meta($variation_post_id, '_regular_price', $variation->Price);
 		update_post_meta($variation_post_id, '_sku', $variation->ArticleNumber );
-		update_post_meta( $variation_post_id,'article_id',$variation->Id);
+		update_post_meta($variation_post_id,'article_id',$variation->Id);
 		update_post_meta($variation_post_id, '_manage_stock', 'yes' );
-		update_post_meta( $variation_post_id,'_stock_status',$stockstatus);
-		update_post_meta( $variation_post_id,'_stock',$variation->Stock);
+		update_post_meta($variation_post_id,'_stock_status',$stockstatus);
+		update_post_meta($variation_post_id,'_stock',$variation->Stock);
 	}
 	
 
@@ -719,7 +725,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		global $wc_arcavis_shop;
 		try{
 			foreach ($tags as $tag) {	
-			$tag=trim(str_replace("  "," ",str_replace("&","&amp;",$tag)));
+				$tag=trim(str_replace("  "," ",str_replace("&","&amp;",$tag)));
 				if($tag!=''){
 					$tag_exists = term_exists( $tag, 'product_tag' );
 
