@@ -399,6 +399,8 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 					}// End of foreach loop
 					$this->_background_process->save()->dispatch();
 					$wpdb->update($wpdb->prefix."lastSyncTicks", array('lastSync'=>$products->DataAgeTicks), array('apiName'=>'articles'));
+					wc_update_product_lookup_tables();
+					delete_transient('wc_products_onsale');
 				}//end of checking products are empty or not.
 
 				$this->update_article_stock($options);
