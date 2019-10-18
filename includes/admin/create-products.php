@@ -133,6 +133,8 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 							if(array_key_exists("HasVariations", $product)){
 								if($product->HasVariations == 'true'){
 									wp_set_object_terms($post_id, 'variable', 'product_type');
+									update_post_meta($post_id, '_manage_stock', 'no' );
+									update_post_meta($post_id, '_stock_status', 'outofstock');	
 									$variation_url = $options['arcavis_link'].'/api/articles?mainArticleId='.$product->Id.'&inclStock=true&inclTags=true&ignSupp=true&ignIdents=true';
 									$variation_data = wp_remote_get($variation_url,$request_args);
 									if(is_wp_error($variation_data)){
@@ -383,6 +385,9 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						if(array_key_exists("HasVariations", $product)){
 							if($product->HasVariations == 'true'){
 								wp_set_object_terms($post_id, 'variable', 'product_type');
+								update_post_meta($post_id, '_manage_stock', 'no' );
+								update_post_meta($post_id, '_stock_status', 'outofstock');	
+								update_post_meta($post_id,'_stock',0);
 								$variation_url = $options['arcavis_link'].'/api/articles?mainArticleId='.$product->Id.'&inclStock=true&inclTags=true&ignSupp=true&ignIdents=true';
 								$variation_data = wp_remote_get($variation_url,$request_args);
 								if(is_wp_error($variation_data)){
