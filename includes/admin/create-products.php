@@ -165,7 +165,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						
 						echo "continue";
 					}
-					
+
 				}else{
 					echo "exit";
 					exit;
@@ -379,7 +379,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 							$tags = array_map( 'intval', $tags);
 							wp_set_object_terms($post_id, $tags, 'product_tag' );
 						}
-					
+
 						// Update variations
 						if(array_key_exists("HasVariations", $product)){
 							if($product->HasVariations == 'true'){
@@ -407,6 +407,8 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 					$this->_background_process->save()->dispatch();
 					$wpdb->update($wpdb->prefix."lastSyncTicks", array('lastSync'=>$products->DataAgeTicks), array('apiName'=>'articles'));
 					wc_update_product_lookup_tables();
+					wc_update_product_lookup_tables_column("onsale");
+					wc_delete_product_transients();
 					delete_transient('wc_products_onsale');
 				}//end of checking products are empty or not.
 
@@ -454,7 +456,6 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 					$stockstatus='outofstock';
 				}
 				update_post_meta($products[0]->ID, '_stock_status', $stockstatus );
-				update_post_meta($products[0]->ID, '_manage_stock', 'yes' );
 				update_post_meta($products[0]->ID,'_stock',$total_stock);
 			}
 		}
@@ -534,7 +535,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 			// Register the taxonomy
 			$name  = wc_attribute_taxonomy_name( $attribute_name );
 			$label = $attribute_name;
-
+			
 			delete_transient( 'wc_attribute_taxonomies' );
 		  
 			global $wc_product_attributes;
