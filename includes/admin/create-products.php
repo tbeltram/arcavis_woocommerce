@@ -144,7 +144,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 									if(!empty($variations)){
 										foreach ($variations->Result as $key => $variation) {
 											$this->insert_product_attributes($post_id, $variation->Attributes);
-											$this->insert_product_variations($post_id, $variation, $key);
+											$this->create_product_variation($post_id, $variation);
 										}
 										$this->insert_variations_default_attributes($post_id,$variations->Result[0]->Attributes);
 									}
@@ -399,7 +399,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 								if(!empty($variations)){
 									foreach ($variations->Result as $key => $variation) {
 										$this->insert_product_attributes($post_id, $variation->Attributes);
-										$this->insert_product_variations($post_id, $variation, $key);
+										$this->create_product_variation($post_id, $variation);
 									}
 									$this->insert_variations_default_attributes($post_id,$variations->Result[0]->Attributes);
 								}
@@ -583,107 +583,109 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		update_post_meta( $post_id,'_product_attributes',$product_attributes);
 	}
 
+	function create_product_variation( $product_id, $variation_data ){
+		// Get the Variable product object (parent)
+		$product = wc_get_product($product_id);
 
-	public function insert_product_variations ($post_id, $variation,$index){  
-		$check_product = $this->check_product_existance($variation->ArticleNumber);
+		$check_product = $this->check_product_existance($variation_data->ArticleNumber);
 
-		if($variation->Status == '0'){
+		if($variation_data->Status == '0'){
 			$Status = 'publish';
-		}elseif($variation->Status == '1'){
+		}elseif($variation_data->Status == '1'){
 			$Status = 'trash';
-		}elseif($variation->Status == '2'){
+		}elseif($variation_data->Status == '2'){
 			$Status = 'trash';
 		}
-		if($check_product != ''){
 
-			$variation_post_id = $check_product;
+		if($check_product != ''){
+			$variation_id = $check_product;
 			$variation_post = array( // Setup the post data for the variation
-				'ID'           => $variation_post_id,
-				'post_title'  => $variation->Title,
-				'post_name'   => str_replace(" ", "-", $variation->Title),
+				'ID'          => $variation_id,
+				'post_title'  => $product->get_title(),
+				'post_name'   => 'product-'.$product_id.'-variation',
 				'post_status' => $Status,
-				'post_parent' => $post_id,
+				'post_parent' => $product_id,
 				'post_type'   => 'product_variation',
-				'guid'        => home_url() . '/?product_variation=product-' . $post_id . '-variation-' . $index
+				'guid'        => $product->get_permalink()
 			);
-			
 			wp_update_post( $variation_post );
 		}else{
 			$variation_post = array( // Setup the post data for the variation
 
-				'post_title'  => $variation->Title,
-				'post_name'   => str_replace(" ", "-", $variation->Title),
+				'post_title'  => $product->get_title(),
+				'post_name'   => 'product-'.$product_id.'-variation',
 				'post_status' => $Status,
-				'post_parent' => $post_id,
+				'post_parent' => $product_id,
 				'post_type'   => 'product_variation',
-				'guid'        => home_url() . '/?product_variation=product-' . $post_id . '-variation-' . $index
+				'guid'        => $product->get_permalink()
 			);
-			$variation_post_id = wp_insert_post($variation_post); // Insert the variation
+			$variation_id = wp_insert_post($variation_post); // Insert the variation
 		}
-		
+		// Get an instance of the WC_Product_Variation object
+		$variation = new WC_Product_Variation( $variation_id );
 
-		foreach ($variation->Attributes as $attr){ // Loop through the variations attributes
-			// Ignore Season
-			if($attr->Name!="Season"){
-				$attribute = $attr->Name;
-				$term_name = $attr->Value;
-				$taxonomy = 'pa_' . str_replace(" ","-",strtolower($attr->Name)); // The attribute taxonomy
+		// Iterating through the variations attributes
+		foreach ($variation_data->Attributes as $attr){
+			if($attr->Name == "Season"){
+				continue;
+			}
+			$attribute = $attr->Name;
+			$term_name = $attr->Value;
+			$taxonomy = 'pa_'.str_replace(" ","-",strtolower($attr->Name)); // The attribute taxonomy
 
-				wp_set_object_terms( $post_id, $attr->Value, $taxonomy, true );
-				$attribute_term = get_term_by('name', $term_name, $taxonomy); // We need to insert the slug not the name into the variation post meta
-				update_post_meta($variation_post_id, 'attribute_pa_'.$taxonomy, $attribute_term->slug);
-				if( ! taxonomy_exists( $taxonomy ) ){
-					register_taxonomy(
-						$taxonomy,
-					   'product_variation',
-						array(
-							'hierarchical' => false,
-							'label' => ucfirst( $attr->Name ),
-							'query_var' => true,
-							'rewrite' => array( 'slug' => sanitize_title($attribute) ), // The base slug
-						)
-					);
-				}
-		
-				// Check if the Term name exist and if not we create it.
-				if( ! term_exists( $term_name, $taxonomy ) )
-					wp_insert_term( $term_name, $taxonomy ); // Create the term
-		
-				$term_slug = get_term_by('name', $term_name, $taxonomy )->slug; // Get the term slug
-		
-				// Get the post Terms names from the parent variable product.
-				$post_term_names =  wp_get_post_terms( $product_id, $taxonomy, array('fields' => 'names') );
-		
-				// Check if the post term exist and if not we set it in the parent variable product.
-				if( ! in_array( $term_name, $post_term_names ) )
-					wp_set_post_terms( $product_id, $term_name, $taxonomy, true );
-		
-				// Set/save the attribute data in the product variation
-				update_post_meta( $variation_post_id, 'attribute_pa_'.$taxonomy, $term_name );	
-			
+			if( ! taxonomy_exists( $taxonomy ) ){
+				register_taxonomy(
+					$taxonomy,
+				'product',
+					array(
+						'hierarchical' => false,
+						'label' => ucfirst( $attribute ),
+						'query_var' => true,
+						'rewrite' => array( 'slug' => sanitize_title($attribute) ), // The base slug
+					)
+				);
+			}
+
+			// Check if the Term name exist and if not we create it.
+			if( ! term_exists( $term_name, $taxonomy ) )
+				wp_insert_term( $term_name, $taxonomy ); // Create the term
+
+			$term_slug = get_term_by('name', $term_name, $taxonomy )->slug; // Get the term slug
+
+			// Get the post Terms names from the parent variable product.
+			$post_term_names =  wp_get_post_terms( $product_id, $taxonomy, array('fields' => 'names') );
+
+			// Check if the post term exist and if not we set it in the parent variable product.
+			if( ! in_array( $term_name, $post_term_names ) )
+				wp_set_post_terms( $product_id, $term_name, $taxonomy, true );
+
+			// Set/save the attribute data in the product variation
+			update_post_meta( $variation_id, 'attribute_'.$taxonomy, $term_slug );
 		}
-		if($variation->SalePrice == 0){
-			$SalePrice = '';
-			update_post_meta( $variation_post_id, '_price', $variation->Price );
-		}else{
-			$SalePrice = $variation->SalePrice;
-			update_post_meta( $variation_post_id, '_price',$SalePrice );
+
+		## Set/save all other data 
+		// SKU
+		if( ! empty( $variation_data->ArticleNumber) )
+			$variation->set_sku( $variation_data->ArticleNumber );
+
+		// Prices
+		if( empty( $variation_data->SalePrice ) ){
+			$variation->set_price( $variation_data->Price);
+		} else {
+			$variation->set_price( $variation_data->SalePrice );
+			$variation->set_sale_price( $variation_data->SalePrice );
 		}
-		$stockstatus='instock';
-		if($variation->Stock<=0){
-			$stockstatus='outofstock';
-		}
-		
-		update_post_meta($variation_post_id, '_sale_price', $SalePrice );
-		update_post_meta($variation_post_id, '_price', $variation->Price);
-		update_post_meta($variation_post_id, '_regular_price', $variation->Price);
-		update_post_meta($variation_post_id, '_sku', $variation->ArticleNumber );
-		update_post_meta($variation_post_id,'article_id',$variation->Id);
-		update_post_meta($variation_post_id, '_manage_stock', 'yes' );
-		update_post_meta($variation_post_id,'_stock_status',$stockstatus);
-		update_post_meta($variation_post_id,'_stock',$variation->Stock);
+		$variation->set_regular_price( $variation_data->Price );
+
+		// Stock
+		$variation->set_manage_stock(true);
+		$variation->set_stock_quantity( $variation_data->Stock );
+		$variation->set_stock_status('');
+		$variation->set_weight(''); // weight (reseting)
+
+		$variation->save(); // Save the data
 	}
-	
+
 	function insert_variations_default_attributes( $post_id, $products_data ){
 		foreach( $products_data as $attribute => $value )
 			$variations_default_attributes['pa_'.$attribute] = get_term_by( 'name', $value, 'pa_'.$attribute )->slug;
