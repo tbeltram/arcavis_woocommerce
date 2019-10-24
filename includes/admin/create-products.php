@@ -146,6 +146,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 											$this->insert_product_attributes($post_id, $variation->Attributes);
 											$this->insert_product_variations($post_id, $variation, $key);
 										}
+										$this->insert_variations_default_attributes($post_id,$variations->Result[0]->Attributes);
 									}
 								}
 								   
@@ -165,12 +166,14 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						
 						echo "continue";
 					}
-
-				}else{
-					echo "exit";
-					exit;
+					
+					$wpdb->update($wpdb->prefix."lastSyncTicks", array('lastSync'=>$products->DataAgeTicks), array('apiName'=>'articles'));
+					wc_update_product_lookup_tables();
+					wc_update_product_lookup_tables_column("onsale");
+					wc_delete_product_transients();
+					delete_transient('wc_products_onsale');
 				}
-				exit;
+				
 			}
 		}catch (Exception $e) 
 		{
@@ -398,6 +401,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 										$this->insert_product_attributes($post_id, $variation->Attributes);
 										$this->insert_product_variations($post_id, $variation, $key);
 									}
+									$this->insert_variations_default_attributes($post_id,$variations->Result[0]->Attributes);
 								}
 							}
 							   
@@ -456,6 +460,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 					$stockstatus='outofstock';
 				}
 				update_post_meta($products[0]->ID, '_stock_status', $stockstatus );
+				
 				update_post_meta($products[0]->ID,'_stock',$total_stock);
 			}
 		}
@@ -537,7 +542,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 			$label = $attribute_name;
 			
 			delete_transient( 'wc_attribute_taxonomies' );
-		  
+			clean_taxonomy_cache( $attroibute_name );
 			global $wc_product_attributes;
 			$wc_product_attributes = array();
 
@@ -620,12 +625,42 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		foreach ($variation->Attributes as $attr){ // Loop through the variations attributes
 			// Ignore Season
 			if($attr->Name!="Season"){
-			wp_set_object_terms( $post_id, $attr->Value, 'pa_' . str_replace(" ","-",strtolower($attr->Name)), true );
-			$attribute_term = get_term_by('name', $attr->Value, 'pa_'.str_replace(" ","-",strtolower($attr->Name))); // We need to insert the slug not the name into the variation post meta
+				$attribute = $attr->Name;
+				$term_name = $attr->Value;
+				$taxonomy = 'pa_' . str_replace(" ","-",strtolower($attr->Name)); // The attribute taxonomy
 
-			update_post_meta($variation_post_id, 'attribute_pa_'.str_replace(" ","-",strtolower($attr->Name)), $attribute_term->slug);
-			// Again without variables: update_post_meta(25, 'attribute_pa_size', 'small')
-			}
+				wp_set_object_terms( $post_id, $attr->Value, $taxonomy, true );
+				$attribute_term = get_term_by('name', $term_name, $taxonomy); // We need to insert the slug not the name into the variation post meta
+				update_post_meta($variation_post_id, 'attribute_pa_'.$taxonomy, $attribute_term->slug);
+				if( ! taxonomy_exists( $taxonomy ) ){
+					register_taxonomy(
+						$taxonomy,
+					   'product_variation',
+						array(
+							'hierarchical' => false,
+							'label' => ucfirst( $attr->Name ),
+							'query_var' => true,
+							'rewrite' => array( 'slug' => sanitize_title($attribute) ), // The base slug
+						)
+					);
+				}
+		
+				// Check if the Term name exist and if not we create it.
+				if( ! term_exists( $term_name, $taxonomy ) )
+					wp_insert_term( $term_name, $taxonomy ); // Create the term
+		
+				$term_slug = get_term_by('name', $term_name, $taxonomy )->slug; // Get the term slug
+		
+				// Get the post Terms names from the parent variable product.
+				$post_term_names =  wp_get_post_terms( $product_id, $taxonomy, array('fields' => 'names') );
+		
+				// Check if the post term exist and if not we set it in the parent variable product.
+				if( ! in_array( $term_name, $post_term_names ) )
+					wp_set_post_terms( $product_id, $term_name, $taxonomy, true );
+		
+				// Set/save the attribute data in the product variation
+				update_post_meta( $variation_post_id, 'attribute_pa_'.$taxonomy, $term_name );	
+			
 		}
 		if($variation->SalePrice == 0){
 			$SalePrice = '';
@@ -638,6 +673,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		if($variation->Stock<=0){
 			$stockstatus='outofstock';
 		}
+		
 		update_post_meta($variation_post_id, '_sale_price', $SalePrice );
 		update_post_meta($variation_post_id, '_price', $variation->Price);
 		update_post_meta($variation_post_id, '_regular_price', $variation->Price);
@@ -648,6 +684,12 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		update_post_meta($variation_post_id,'_stock',$variation->Stock);
 	}
 	
+	function insert_variations_default_attributes( $post_id, $products_data ){
+		foreach( $products_data as $attribute => $value )
+			$variations_default_attributes['pa_'.$attribute] = get_term_by( 'name', $value, 'pa_'.$attribute )->slug;
+		// Save the variation default attributes to variable product meta data
+		update_post_meta( $post_id, '_default_attributes', $variations_default_attributes );
+	}
 
 	##This function is used to assign categories to articles
 	public function add_category($category1,$category2,$category3){
