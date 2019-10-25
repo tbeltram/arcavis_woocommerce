@@ -510,7 +510,6 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 						$stockstatus='outofstock';
 					}
 					update_post_meta($products[0]->ID, '_stock_status', $stockstatus );
-					update_post_meta($products[0]->ID, '_manage_stock', 'yes' );
 					update_post_meta( $products[0]->ID,'_stock',$stock->Stock);
 				}
 			}
@@ -661,6 +660,7 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 
 			// Set/save the attribute data in the product variation
 			update_post_meta( $variation_id, 'attribute_'.$taxonomy, $term_slug );
+
 		}
 
 		## Set/save all other data 
@@ -682,8 +682,10 @@ class WooCommerce_Arcavis_Create_Products_Settings{
 		$variation->set_stock_quantity( $variation_data->Stock );
 		$variation->set_stock_status('');
 		$variation->set_weight(''); // weight (reseting)
-
 		$variation->save(); // Save the data
+
+		//Article Id (for mapping ordered articles back to arcavis)
+		update_post_meta($variation_id,'article_id',$variation_data->Id);
 	}
 
 	function insert_variations_default_attributes( $post_id, $products_data ){
